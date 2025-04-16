@@ -75,10 +75,16 @@ public class UserService {
         try {
             // 鑄造 1000 CCT 給新用戶
             carbonCreditService.mint(adminAddress, user.getAddress(), BigDecimal.valueOf(1000));
-            // 初始化 USDC 餘額
-            usdcService.initializeBalance(user.getAddress(), BigDecimal.valueOf(10000));
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to initialize user balances: " + e.getMessage());
+            throw new IllegalStateException("Failed to mint CCT tokens: " + e.getMessage());
+        }
+
+        try {
+            // 添加 10000 USDC
+            LiquidityPool pool = liquidityPoolRepository.findAll().get(0);
+            usdcService.initializeBalance(user.getAddress(), BigDecimal.valueOf(10000), pool.getExchangeId());
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to initialize USDC balance: " + e.getMessage());
         }
     }
 

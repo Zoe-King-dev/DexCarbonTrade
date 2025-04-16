@@ -14,4 +14,12 @@ public class USDCBalance {
 
     @Column(name = "balance", precision = 36, scale = 18, nullable = false)
     private BigDecimal balance;
+
+    @ManyToOne
+    @JoinColumn(name = "exchange_id", nullable = false)
+    private LiquidityPool pool;
+
+    public void setPool(LiquidityPool pool) {
+        this.pool = pool;
+    }
 } 
