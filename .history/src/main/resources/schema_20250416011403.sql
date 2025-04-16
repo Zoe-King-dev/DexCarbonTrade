@@ -1,4 +1,0 @@
-CREATE TABLE IF NOT EXISTS usdc_balances (
-    address VARCHAR(255) PRIMARY KEY,
-    balance DECIMAL(36,18) NOT NULL DEFAULT 0
-); 
