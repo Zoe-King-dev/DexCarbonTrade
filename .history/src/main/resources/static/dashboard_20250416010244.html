@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Trading Platform - Dashboard</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.0.umd.min.js" type="application/javascript"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #ae1f23;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #8f1a1d;
+        }
+        .balance-display {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .rate-display {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f8f8;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Carbon Trading Platform</h1>
+            <div>
+                <select id="myaccount" class="account"></select>
+                <button onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Balances Card -->
+            <div class="card">
+                <h2>Balances</h2>
+                <div class="balance-display">
+                    <div>CCT Balance: <span id="token-balance">0</span> CCT</div>
+                    <div>USDC Balance: <span id="eth-balance">0</span> USDC</div>
+                </div>
+                <div class="rate-display">
+                    <div id="eth-token-rate-display">1 USDC = 0 CCT</div>
+                    <div id="token-eth-rate-display">1 CCT = 0 USDC</div>
+                </div>
+            </div>
+
+            <!-- Pool Info Card -->
+            <div class="card">
+                <h2>Liquidity Pool</h2>
+                <div class="balance-display">
+                    <div>CCT Reserves: <span id="token-reserves">0</span> CCT</div>
+                    <div>USDC Reserves: <span id="eth-reserves">0</span> USDC</div>
+                </div>
+            </div>
+
+            <!-- Swap Card -->
+            <div class="card">
+                <h2>Swap</h2>
+                <div class="form-group">
+                    <label>Amount to Swap</label>
+                    <input type="number" id="amt-to-swap" placeholder="Enter amount">
+                </div>
+                <div class="form-group">
+                    <label>Max Slippage (%)</label>
+                    <input type="number" id="max-slippage-swap" value="1" min="0" max="100">
+                </div>
+                <div>
+                    <button id="swap-eth">Swap USDC for CCT</button>
+                    <button id="swap-token">Swap CCT for USDC</button>
+                </div>
+            </div>
+
+            <!-- Liquidity Card -->
+            <div class="card">
+                <h2>Liquidity</h2>
+                <div class="form-group">
+                    <label>Amount (USDC)</label>
+                    <input type="number" id="amt-eth" placeholder="Enter amount">
+                </div>
+                <div class="form-group">
+                    <label>Max Slippage (%)</label>
+                    <input type="number" id="max-slippage-liquid" value="1" min="0" max="100">
+                </div>
+                <div>
+                    <button id="add-liquidity">Add Liquidity</button>
+                    <button id="remove-liquidity">Remove Liquidity</button>
+                    <button id="remove-all-liquidity">Remove All Liquidity</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="card">
+            <h2>Transaction History</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="transaction-history">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal" id="confirm-transaction">
+        <div class="modal-content">
+            <h3>confirm-transaction</h3>
+            <p>transaction-details：</p>
+            <div id="transaction-details"></div>
+            <button onclick="confirmTransaction()">Confirm</button>
+            <button onclick="cancelTransaction()">Cancel</button>
+        </div>
+    </div>
+
+    <script src="js/exchange.js"></script>
+    <script>
+        // Check if user is logged in
+        function checkAuth() {
+            const user = localStorage.getItem('user');
+            const token = localStorage.getItem('token');
+            if (!user || !token) {
+                window.location.href = '/index.html';
+                return false;
+            }
+            return true;
+        }
+
+        function logout() {
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            window.location.href = '/index.html';
+        }
+
+        // Update balances periodically
+        async function updateBalances() {
+            if (!checkAuth()) return;
+            
+            const account = $("#myaccount").val();
+            if (!account) return;
+
+            try {
+                // Update token balance
+                const tokenBalance = await token_contract.balanceOf(account);
+                $("#token-balance").text(ethers.utils.formatEther(tokenBalance));
+
+                // Update ETH balance
+                const ethBalance = await provider.getBalance(account);
+                $("#eth-balance").text(ethers.utils.formatEther(ethBalance));
+
+                // Update pool state
+                const poolState = await getPoolState();
+                $("#eth-token-rate-display").text("1 USDC = " + poolState['token_eth_rate'] + " CCT");
+                $("#token-eth-rate-display").text("1 CCT = " + poolState['eth_token_rate'] + " USDC");
+                $("#token-reserves").text(poolState['token_liquidity']);
+                $("#eth-reserves").text(poolState['eth_liquidity']);
+            } catch (error) {
+                console.error("Error updating balances:", error);
+                if (error.message.includes('unauthorized')) {
+                    logout();
+                }
+            }
+        }
+
+        // Update transaction history
+        async function updateTransactionHistory() {
+            if (!checkAuth()) return;
+            
+            const account = $("#myaccount").val();
+            if (!account) return;
+
+            try {
+                const response = await fetch(`/api/transactions/${account}`);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const transactions = await response.json();
+                const tbody = $("#transaction-history");
+                tbody.empty();
+
+                transactions.forEach(tx => {
+                    tbody.append(`
+                        <tr>
+                            <td>${new Date(tx.timestamp).toLocaleString()}</td>
+                            <td>${tx.type}</td>
+                            <td>${tx.fromAddress}</td>
+                            <td>${tx.toAddress}</td>
+                            <td>${tx.amount} ${tx.type === 'SWAP' ? `+ ${tx.amount2}` : ''}</td>
+                            <td>${tx.status}</td>
+                        </tr>
+                    `);
+                });
+            } catch (error) {
+                console.error("Error updating transaction history:", error);
+                if (error.message.includes('unauthorized')) {
+                    logout();
+                }
+            }
+        }
+
+        // Initialize
+        $(document).ready(() => {
+            if (!checkAuth()) return;
+            
+            // Update every 10 seconds
+            setInterval(updateBalances, 10000);
+            setInterval(updateTransactionHistory, 10000);
+
+            // Initial updates
+            updateBalances();
+            updateTransactionHistory();
+        });
+    </script>
+</body>
+</html> 

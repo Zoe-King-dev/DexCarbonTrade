@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Trading Platform - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #ae1f23;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #8f1a1d;
+        }
+        .balance-display {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .rate-display {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f8f8;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Carbon Trading Platform</h1>
+            <div>
+                <span id="username"></span>
+                <button onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Balances Card -->
+            <div class="card">
+                <h2>Your Balances</h2>
+                <div class="balance-display">
+                    <div>CCT Balance: <span id="token-balance">0</span> CCT</div>
+                    <div>USDC Balance: <span id="usdc-balance">0</span> USDC</div>
+                </div>
+                <div class="rate-display">
+                    <div id="eth-token-rate-display">1 USDC = 0 CCT</div>
+                    <div id="token-eth-rate-display">1 CCT = 0 USDC</div>
+                </div>
+            </div>
+
+            <!-- Pool Info Card -->
+            <div class="card">
+                <h2>Liquidity Pool</h2>
+                <div class="balance-display">
+                    <div>CCT Reserves: <span id="cct-reserves">0</span> CCT</div>
+                    <div>USDC Reserves: <span id="usdc-reserves">0</span> USDC</div>
+                    <div>Exchange Rate: <span id="exchange-rate">0</span></div>
+                    <div>Your Share: <span id="user-share">0</span>%</div>
+                </div>
+            </div>
+
+            <!-- Swap Card -->
+            <div class="card">
+                <h2>Swap</h2>
+                <div class="form-group">
+                    <label>Amount to Swap</label>
+                    <input type="number" id="amt-to-swap" placeholder="Enter amount">
+                </div>
+                <div class="form-group">
+                    <label>Max Slippage (%)</label>
+                    <input type="number" id="max-slippage-swap" value="1" min="0" max="100">
+                </div>
+                <div>
+                    <button onclick="swapUSDC()">Swap USDC for CCT</button>
+                    <button onclick="swapCCT()">Swap CCT for USDC</button>
+                </div>
+            </div>
+
+            <!-- Liquidity Card -->
+            <div class="card">
+                <h2>Liquidity</h2>
+                <div id="pool-status" class="info-message" style="display: none;">
+                    <p>Pool will be initialized with 5000 CCT and 5000 USDC (1:1 ratio)</p>
+                </div>
+                <div class="form-group">
+                    <label>Amount (USDC)</label>
+                    <input type="number" id="amt-eth" placeholder="Enter amount">
+                </div>
+                <div class="form-group">
+                    <label>Max Slippage (%)</label>
+                    <input type="number" id="max-slippage-liquid" value="1" min="0" max="100">
+                </div>
+                <div>
+                    <button onclick="addLiquidity()">Add Liquidity</button>
+                    <button onclick="removeLiquidity()">Remove Liquidity</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="card">
+            <h2>Transaction History</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="transaction-history">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal" id="confirm-transaction">
+        <div class="modal-content">
+            <h3>confirm-transaction</h3>
+            <p>transaction-details：</p>
+            <div id="transaction-details"></div>
+            <button onclick="confirmTransaction()">Confirm</button>
+            <button onclick="cancelTransaction()">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // Check if user is logged in
+        function checkAuth() {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const token = localStorage.getItem('token');
+            if (!user || !token) {
+                window.location.href = '/index.html';
+                return false;
+            }
+            // 顯示用戶名
+            document.getElementById('username').textContent = user.username || '';
+            return true;
+        }
+
+        function logout() {
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            window.location.href = '/index.html';
+        }
+
+        // Update balances periodically
+        async function updateBalances() {
+            if (!checkAuth()) return;
+            
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const address = user.address;
+            if (!address) return;
+
+            try {
+                // Update CCT balance
+                const cctResponse = await fetch(`/api/token/balance?address=${address}`);
+                if (cctResponse.ok) {
+                    const cctBalance = await cctResponse.json();
+                    $("#token-balance").text(cctBalance);
+                }
+
+                // Update USDC balance
+                const usdcResponse = await fetch(`/api/usdc/balance?address=${address}`);
+                if (usdcResponse.ok) {
+                    const usdcBalance = await usdcResponse.json();
+                    $("#usdc-balance").text(usdcBalance);
+                }
+
+                // Update pool state
+                const exchangeRateResponse = await fetch('/api/exchange/exchange-rate');
+                if (exchangeRateResponse.ok) {
+                    const rate = await exchangeRateResponse.json();
+                    $("#eth-token-rate-display").text(`1 USDC = ${rate} CCT`);
+                    $("#token-eth-rate-display").text(`1 CCT = ${1/rate} USDC`);
+                }
+
+                const liquidityResponse = await fetch(`/api/exchange/liquidity?address=${address}`);
+                if (liquidityResponse.ok) {
+                    const liquidity = await liquidityResponse.json();
+                    console.log("Received liquidity data:", liquidity);
+                    $("#cct-reserves").text(liquidity.cctReserves || '0');
+                    $("#usdc-reserves").text(liquidity.usdcReserves || '0');
+                    $("#exchange-rate").text(liquidity.exchangeRate || '0');
+                    $("#user-share").text((liquidity.userSharePercentage * 100).toFixed(2) || '0');
+                }
+            } catch (error) {
+                console.error("Error updating balances:", error);
+                if (error.message.includes('unauthorized')) {
+                    logout();
+                }
+            }
+        }
+
+        // Update transaction history
+        async function updateTransactionHistory() {
+            if (!checkAuth()) return;
+            
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const address = user.address;
+            if (!address) return;
+
+            try {
+                const response = await fetch(`/api/transactions/${address}`);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const transactions = await response.json();
+                const tbody = $("#transaction-history");
+                tbody.empty();
+
+                transactions.forEach(tx => {
+                    tbody.append(`
+                        <tr>
+                            <td>${new Date(tx.timestamp).toLocaleString()}</td>
+                            <td>${tx.type}</td>
+                            <td>${tx.fromAddress}</td>
+                            <td>${tx.toAddress}</td>
+                            <td>${tx.amount} ${tx.type === 'SWAP' ? `+ ${tx.amount2}` : ''}</td>
+                            <td>${tx.status}</td>
+                        </tr>
+                    `);
+                });
+            } catch (error) {
+                console.error("Error updating transaction history:", error);
+                if (error.message.includes('unauthorized')) {
+                    logout();
+                }
+            }
+        }
+
+        // Initialize
+        $(document).ready(() => {
+            if (!checkAuth()) return;
+            
+            // Update every 10 seconds
+            setInterval(updateBalances, 50000);
+            setInterval(updateTransactionHistory, 50000);
+
+            // Initial updates
+            updateBalances();
+            updateTransactionHistory();
+        });
+
+        // 添加流動性功能
+        async function addLiquidity() {
+            if (!checkAuth()) return;
+            
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const address = user.address;
+            if (!address) return;
+
+            const usdcAmount = $("#amt-eth").val();
+            const maxSlippage = $("#max-slippage-liquid").val();
+
+            if (!usdcAmount) {
+                alert('Please enter amount');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/exchange/add-liquidity', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: address,
+                        amountUsdc: usdcAmount,
+                        maxSlippagePercentage: maxSlippage
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Liquidity added successfully');
+                    updateBalances();
+                } else {
+                    const error = await response.text();
+                    alert('Error: ' + error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // 移除流動性功能
+        async function removeLiquidity() {
+            if (!checkAuth()) return;
+            
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const address = user.address;
+            if (!address) return;
+
+            const usdcAmount = $("#amt-eth").val();
+            const maxSlippage = $("#max-slippage-liquid").val();
+
+            if (!usdcAmount || !maxSlippage) {
+                alert("請輸入金額和最大滑點");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/exchange/remove-liquidity', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        address: address,
+                        baseAmount: usdcAmount,
+                        maxSlippage: maxSlippage
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('移除流動性失敗');
+                }
+
+                alert("成功移除流動性");
+                updateBalances();
+                updateTransactionHistory();
+            } catch (error) {
+                console.error("Error removing liquidity:", error);
+                alert(error.message);
+            }
+        }
+
+        // 交換 USDC 到 CCT
+        async function swapUSDC() {
+            if (!checkAuth()) return;
+            
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const address = user.address;
+            if (!address) return;
+
+            const amount = $("#amt-to-swap").val();
+            const maxSlippage = $("#max-slippage-swap").val();
+
+            if (!amount || !maxSlippage) {
+                alert("請輸入金額和最大滑點");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/exchange/swap-base', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        address: address,
+                        amount: amount,
+                        maxSlippage: maxSlippage
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('交換失敗');
+                }
+
+                alert("成功交換 USDC 到 CCT");
+                updateBalances();
+                updateTransactionHistory();
+            } catch (error) {
+                console.error("Error swapping USDC:", error);
+                alert(error.message);
+            }
+        }
+
+        // 交換 CCT 到 USDC
+        async function swapCCT() {
+            if (!checkAuth()) return;
+            
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const address = user.address;
+            if (!address) return;
+
+            const amount = $("#amt-to-swap").val();
+            const maxSlippage = $("#max-slippage-swap").val();
+
+            if (!amount || !maxSlippage) {
+                alert("請輸入金額和最大滑點");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/exchange/swap-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        address: address,
+                        amount: amount,
+                        maxSlippage: maxSlippage
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('交換失敗');
+                }
+
+                alert("成功交換 CCT 到 USDC");
+                updateBalances();
+                updateTransactionHistory();
+            } catch (error) {
+                console.error("Error swapping CCT:", error);
+                alert(error.message);
+            }
+        }
+
+        // 定期更新流動性信息
+        setInterval(updateBalances, 50000);
+        updateBalances();
+
+        function updateLiquidityInfo() {
+            fetch('/api/exchange/liquidity-info')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('cct-reserves').textContent = data.cctReserves;
+                    document.getElementById('usdc-reserves').textContent = data.usdcReserves;
+                    document.getElementById('exchange-rate').textContent = data.exchangeRate;
+                    document.getElementById('user-share').textContent = data.totalShares;
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // 頁面加載時更新一次
+        updateLiquidityInfo();
+
+        // 每 30 秒更新一次
+        setInterval(updateLiquidityInfo, 30000);
+    </script>
+</body>
+</html> 

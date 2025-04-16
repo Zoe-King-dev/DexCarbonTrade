@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Trading Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet"/>
+    <style>
+        .left-panel {
+            background-image: url('images/C0113.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+        .tab-active {
+            border-bottom: 2px solid #ae1f23;
+            color: #ae1f23;
+        }
+    </style>
+</head>
+<body class="h-screen bg-gray-100">
+    <div class="flex h-full">
+        <div class="left-panel flex-1"></div>
+        <div class="w-[500px] bg-white p-10 flex flex-col">
+            <div class="mb-8 text-center">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Carbon Trading Platform</h1>
+                <p class="text-gray-600">Welcome back! Please sign in to your account.</p>
+            </div>
+            
+            <div class="flex mb-6 border-b">
+                <button onclick="showTab('login')" class="tab active py-2 px-4 text-gray-600 border-b-2 border-transparent hover:border-red-500 focus:outline-none">Sign In</button>
+                <button onclick="showTab('register')" class="tab py-2 px-4 text-gray-600 border-b-2 border-transparent hover:border-red-500 focus:outline-none">Register</button>
+            </div>
+
+            <div id="login-content" class="tab-content active space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <input type="text" id="loginUsername" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="loginPassword" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500" required>
+                </div>
+                <button onclick="login()" class="w-full bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Sign In</button>
+                <div class="text-right">
+                    <a href="#" class="text-sm text-red-500 hover:text-red-600">Forgot Password?</a>
+                </div>
+            </div>
+
+            <div id="register-content" class="tab-content hidden space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <input type="text" id="registerUsername" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="registerPassword" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">User Type</label>
+                    <select id="userType" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500" required>
+                        <option value="GOVERNMENT_REGULATOR">Government Regulator</option>
+                        <option value="MINTER">Carbon Credit Minter</option>
+                        <option value="COMPANY">Company</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Wallet Address</label>
+                    <input type="text" id="address" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500" required>
+                </div>
+                <button onclick="register()" class="w-full bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Register</button>
+            </div>
+
+            <div class="mt-auto text-center text-sm text-gray-600">
+                <p>&copy; 2024 Carbon Trading Platform. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // jQuery 必須在 toastr 之前加載
+        $(document).ready(function() {
+            // Configure toastr
+            toastr.options = {
+                closeButton: true,
+                progressBar: true,
+                positionClass: "toast-top-right",
+                timeOut: 5000,
+                extendedTimeOut: 2000,
+                preventDuplicates: true
+            };
+        });
+
+        function showTab(tabName) {
+            // 移除所有 tab 的活動狀態
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('tab-active');
+            });
+            
+            // 隱藏所有內容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // 顯示選中的內容
+            document.getElementById(tabName + '-content').style.display = 'block';
+            
+            // 設置選中 tab 的活動狀態
+            document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('tab-active');
+        }
+
+        async function validateForm(isLogin) {
+            const errors = [];
+            
+            if (isLogin) {
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                if (!username) errors.push('用戶名不能為空');
+                if (!password) errors.push('密碼不能為空');
+            } else {
+                const username = document.getElementById('registerUsername').value;
+                const password = document.getElementById('registerPassword').value;
+                const address = document.getElementById('address').value;
+                
+                if (!username) errors.push('用戶名不能為空');
+                if (!password) errors.push('密碼不能為空');
+                if (!address) errors.push('錢包地址不能為空');
+                if (password.length < 6) errors.push('密碼長度至少為6位');
+            }
+            
+            if (errors.length > 0) {
+                toastr.error(errors.join('<br>'));
+                return false;
+            }
+            return true;
+        }
+
+        async function login() {
+            if (!await validateForm(true)) return;
+            
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await axios.post('/api/users/login', { 
+                    username, 
+                    password 
+                });
+                
+                if (response.data) {
+                    localStorage.setItem('token', 'dummy-token');
+                    localStorage.setItem('user', JSON.stringify(response.data));
+                    window.location.href = '/dashboard.html';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                toastr.error(error.response?.data?.error || '登錄失敗');
+            }
+        }
+
+        async function register() {
+            if (!await validateForm(false)) return;
+            
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const userType = document.getElementById('userType').value;
+            const address = document.getElementById('address').value;
+
+            try {
+                const response = await axios.post('/api/users/register', {
+                    username,
+                    password,
+                    userType,
+                    address
+                });
+
+                if (response.data && response.data.message === "Registration successful") {
+                    toastr.success('註冊成功！請登錄。');
+                    // 清空表單
+                    document.getElementById('registerUsername').value = '';
+                    document.getElementById('registerPassword').value = '';
+                    document.getElementById('address').value = '';
+                    // 切換到登錄頁面
+                    showTab('login');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                const errorMessage = error.response?.data?.error || '註冊失敗';
+                toastr.error(errorMessage);
+            }
+        }
+
+        // 初始顯示登錄頁面
+        showTab('login');
+
+        // Check if user is already logged in
+        if (localStorage.getItem('token')) {
+            window.location.href = '/dashboard.html';
+        }
+    </script>
+</body>
+</html> 
